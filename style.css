@@ -1,0 +1,47 @@
+body {
+    font-family: sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background-color: #f0f0f0;
+    margin: 0;
+}
+
+.timer-container {
+    display: flex;
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 1s ease-out;
+}
+
+.timer-segment {
+    text-align: center;
+    margin: 0 15px;
+}
+
+.timer-value {
+    font-size: 3em;
+    font-weight: bold;
+    color: #333;
+    display: block;
+    transition: transform 0.3s ease-in-out;
+}
+
+.timer-label {
+    font-size: 1.2em;
+    color: #777;
+    display: block;
+}
+
+/* Анимация при изменении значения */
+.timer-value.changed {
+    transform: scale(1.2);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
