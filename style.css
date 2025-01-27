@@ -36,7 +36,6 @@ body {
     display: block;
 }
 
-/* Анимация при изменении значения */
 .timer-value.changed {
     transform: scale(1.2);
 }
