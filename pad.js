@@ -1,143 +1,134 @@
-
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', function () {
     const nameInput = document.getElementById('name');
     const messageInput = document.getElementById('message');
-    const charCount = document.getElementById('char-count');
+    const charCountDisplay = document.getElementById('char-count');
     const submitButton = document.getElementById('submit-note');
-    const messageError = document.getElementById('message-error');
     const notesList = document.getElementById('notes-list');
-
-    const maxChars = 100;
-    let dailyPosts = {};
-    const DATA_FILE = 'pad.txt'; // Путь к файлу
+    const messageError = document.getElementById('message-error');
+    const MAX_NOTES_PER_DAY = 3;
 
     // Функция для обновления счетчика символов
     function updateCharCount() {
-        const remainingChars = maxChars - messageInput.value.length;
-        charCount.textContent = remainingChars;
-        charCount.style.color = remainingChars < 0 ? 'red' : '#555';
+        const remainingChars = 100 - messageInput.value.length;
+        charCountDisplay.textContent = remainingChars;
     }
 
-    messageInput.addEventListener('input', updateCharCount);
-
-    // Функция для получения IP-адреса (эмуляция)
-    function getIpAddress() {
-         // Генерация уникального идентификатора пользователя (замените на реальное определение IP-адреса)
-        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    }
-
-    // Функция для загрузки заметок из файла
-    async function loadNotes() {
-        try {
-          const response = await fetch(DATA_FILE);
-          if (!response.ok) {
-             if (response.status === 404) {
-                // Если файла нет, создаем пустой файл
-                console.log("Файл pad.txt не найден. Создаю пустой файл.")
-                 await fetch(DATA_FILE, {
-                      method: 'PUT'
-                 })
-                 return [];
-              } else {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-               }
-          }
-            const text = await response.text();
-            if (!text.trim()) return [];
-            const notes = text.split('\n').map(line => {
-              try {
-                return JSON.parse(line);
-              } catch (e) {
-                console.error('Ошибка при парсинге JSON', e);
-                  return null;
-              }
-              }).filter(note => note); // Фильтрация null
-             notes.forEach(note => addNoteToUI(note, false));
-          } catch (e) {
-              console.error('Ошибка при загрузке заметок', e);
-             messageError.textContent = 'Ошибка при загрузке заметок';
-           }
-
-    }
-   // Функция для добавления заметки в пользовательский интерфейс
-   function addNoteToUI(note, isNew = true) {
-        const noteItem = document.createElement('div');
-        noteItem.classList.add('note-item');
-        const sentTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'});
-        if (isNew) { // Если это новая заметка, используем name и message
-          noteItem.innerHTML = `<strong>${note.name}:</strong> ${note.message} <span style="float:right;">(${sentTime})</span>`;
-        } else { // Если заметка загружена из файла, используем title и body
-           noteItem.innerHTML = `<strong>${note.name}:</strong> ${note.message} <span style="float:right;">(${sentTime})</span>`;
+    // Функция для проверки валидности сообщения
+    function validateMessage(message) {
+        if (message.length < 3) {
+            return "Сообщение должно быть не менее 3 символов.";
         }
-        notesList.appendChild(noteItem);
-   }
+        return null; // Нет ошибок
+    }
 
-    // Функция для сохранения заметок в файл
-    async function saveNote(note) {
-         try {
-            const response = await fetch(DATA_FILE, {
-                 method: 'POST',
-                 body: JSON.stringify(note) + '\n',
-                 headers: {
-                     'Content-Type': 'text/plain; charset=UTF-8',
-                }
-            });
+    // Функция для получения IP пользователя (используется для симуляции, т.к. реальный IP на клиенте не получить)
+    function getClientIP() {
+        //  Для простоты симуляции, генерируем уникальный ID на основе времени.
+        return 'user_' + Date.now() % 100000; 
+        // В реальном проекте, IP нужно получать на стороне сервера.
+    }
 
-           if (!response.ok) {
-              throw new Error(`HTTP error! Status: ${response.status}`);
+    // Функция для сохранения записки в файл (симуляция)
+    function saveNote(name, message, ip) {
+        const now = new Date();
+        const dateString = now.toISOString();
+
+        fetch('pad.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `name=${encodeURIComponent(name)}&message=${encodeURIComponent(message)}&date=${encodeURIComponent(dateString)}&ip=${encodeURIComponent(ip)}`,
+        })
+        .then(response => response.text())
+        .then(data => {
+            if (data === "success") {
+                 loadNotes();
+                console.log('Заметка успешно сохранена!');
+            } else {
+                messageError.textContent = "Ошибка при сохранении заметки.";
             }
-
-       } catch (e) {
-         console.error("Ошибка при сохранении заметки", e);
-           messageError.textContent = 'Ошибка при сохранении заметки';
-       }
+        })
+        .catch(error => {
+            console.error('Ошибка при сохранении заметки:', error);
+            messageError.textContent = "Ошибка при сохранении заметки.";
+        });
     }
 
-     // Функция для публикации заметки
-    async function publishNote() {
-          const name = nameInput.value.trim();
-          const message = messageInput.value.trim();
-          messageError.textContent = '';
-           if (name.length < 1) {
-              messageError.textContent = 'Имя должно быть заполнено';
-             return;
-           }
-          if (message.length < 3) {
-               messageError.textContent = 'Сообщение должно содержать минимум 3 символа';
-              return;
-           }
-         if (message.length > maxChars) {
-             messageError.textContent = `Сообщение не может содержать больше ${maxChars} символов`;
-             return;
-        }
-         const ip = getIpAddress();
-         const today = new Date().toLocaleDateString();
-         if (!dailyPosts[ip]) {
-            dailyPosts[ip] = {};
-        }
-        if (!dailyPosts[ip][today]){
-           dailyPosts[ip][today] = 0;
-        }
-        if (dailyPosts[ip][today] >= 3) {
-            messageError.textContent = 'Вы уже опубликовали 3 сообщения сегодня.';
-           return;
-       }
-
-        const note = { name: name, message: message, time: new Date().toISOString() };
-         try {
-              await saveNote(note);
-               addNoteToUI(note, true);
-              dailyPosts[ip][today]++;
-              nameInput.value = "";
-              messageInput.value = "";
-              updateCharCount();
-         } catch (e) {
-            console.error('Ошибка при отправке заметки', e);
-           messageError.textContent = 'Ошибка при отправке заметки';
-      }
+    // Функция для загрузки записок из файла (симуляция)
+    function loadNotes() {
+        fetch('pad.php', {
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then(notes => {
+            notesList.innerHTML = ''; // Очищаем предыдущие записки
+            notes.forEach(note => {
+                const noteDiv = document.createElement('div');
+                noteDiv.classList.add('note');
+                noteDiv.innerHTML = `<strong>${note.name}:</strong> ${note.message} <span class="note-date">(${new Date(note.date).toLocaleString()})</span>`;
+                notesList.appendChild(noteDiv);
+            });
+        })
+         .catch(error => {
+            console.error('Ошибка при загрузке записок:', error);
+            notesList.innerHTML = '<p>Ошибка при загрузке записок.</p>';
+        });
     }
 
+    // Обработчик ввода сообщения
+    messageInput.addEventListener('input', function () {
+        updateCharCount();
+        messageError.textContent = '';
+    });
+
+    // Обработчик отправки формы
+    submitButton.addEventListener('click', function () {
+        const name = nameInput.value.trim();
+        const message = messageInput.value.trim();
+        const ip = getClientIP();
+
+        if (!name) {
+            messageError.textContent = "Пожалуйста, введите имя.";
+            return;
+        }
+
+         const messageValidation = validateMessage(message);
+         if (messageValidation) {
+            messageError.textContent = messageValidation;
+            return;
+         }
+
+
+        // Получаем данные о количестве записей от этого IP за сегодня (через PHP)
+         fetch('pad.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `check_ip=${encodeURIComponent(ip)}`,
+         })
+          .then(response => response.json())
+          .then(data => {
+             const notesCountToday = data.count;
+
+             if (notesCountToday >= MAX_NOTES_PER_DAY) {
+                    messageError.textContent = `Вы достигли лимита в ${MAX_NOTES_PER_DAY} записки в день.`;
+            } else {
+                 saveNote(name, message, ip);
+            }
+         })
+         .catch(error => {
+            console.error('Ошибка при проверке IP:', error);
+            messageError.textContent = "Ошибка при проверке IP.";
+        });
+
+
+    });
+
+
+    // Загружаем записки при загрузке страницы
     loadNotes();
+    updateCharCount();
 
-    submitButton.addEventListener('click', publishNote);
 });
