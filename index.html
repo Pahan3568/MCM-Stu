@@ -94,5 +94,19 @@
 
   </div>
  </div>
+    <div class="container">
+        <h1>Заметки</h1>
+        <div class="note-form">
+            <input type="text" id="name" placeholder="Имя" maxlength="50">
+            <textarea id="message" placeholder="Сообщение (3-100 символов)" maxlength="100"></textarea>
+            <span id="char-count">100</span>
+            <button id="submit-note">Опубликовать</button>
+            <p id="message-error" class="error"></p>
+        </div>
+        <div class="notes-list" id="notes-list">
+            <!-- Здесь будут отображаться записки -->
+        </div>
+    </div>
+    <script src="pad.js"></script>
 </body>
 </html>
