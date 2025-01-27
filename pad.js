@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const maxChars = 100;
     let dailyPosts = {};
+    const API_URL = "https://jsonplaceholder.typicode.com/posts"; // URL для JSONPlaceholder
+
 
     // Функция для обновления счетчика символов
     function updateCharCount() {
@@ -18,87 +20,105 @@ document.addEventListener('DOMContentLoaded', () => {
 
     messageInput.addEventListener('input', updateCharCount);
 
-    // Функция для получения IP-адреса (эмуляция)
-    function getIpAddress() {
-      // Генерация уникального идентификатора пользователя (замените на реальное определение IP-адреса)
-       return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-    }
 
-    // Функция для загрузки заметок из локального хранилища (эмуляция)
-    function loadNotes() {
-      const storedNotes = localStorage.getItem('notes');
-      if (storedNotes){
-        try {
-          const notes = JSON.parse(storedNotes);
-          notes.forEach(addNoteToUI);
-          return notes;
-          } catch (e) {
-            console.error("Ошибка при разборе заметок из localStorage", e);
-            return [];
-          }
-      }
-      return [];
-    }
-
-    // Функция для сохранения заметок в локальное хранилище (эмуляция)
-    function saveNotes(notes) {
-      localStorage.setItem('notes', JSON.stringify(notes));
-    }
-     // Функция для добавления заметки в пользовательский интерфейс
-     function addNoteToUI(note){
-      const noteItem = document.createElement('div');
-      noteItem.classList.add('note-item');
-      noteItem.innerHTML = `<strong>${note.name}:</strong> ${note.message}`;
-      notesList.appendChild(noteItem);
+     // Функция для получения IP-адреса (эмуляция)
+     function getIpAddress() {
+        // Генерация уникального идентификатора пользователя (замените на реальное определение IP-адреса)
+        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
      }
 
-    // Функция для публикации заметки
-    function publishNote() {
-       const name = nameInput.value.trim();
-       const message = messageInput.value.trim();
-       messageError.textContent = '';
 
+    // Функция для загрузки заметок с сервера
+  async function loadNotes() {
+       try{
+           const response = await fetch(`${API_URL}?_limit=20`);
+           if (!response.ok){
+            throw new Error(`HTTP error! Status: ${response.status}`);
+           }
+           const notes = await response.json();
+           notes.forEach(note => addNoteToUI(note));
+        }
+           catch (e){
+               console.error('Ошибка при загрузке заметок', e);
+              messageError.textContent = 'Ошибка при загрузке заметок';
+           }
+
+        }
+
+    // Функция для добавления заметки в пользовательский интерфейс
+      function addNoteToUI(note) {
+           const noteItem = document.createElement('div');
+           noteItem.classList.add('note-item');
+           // Преобразование времени в формат HH:MM:SS
+           const sentTime = new Date(note.time);
+           const timeString = sentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          noteItem.innerHTML = `<strong>${note.name}:</strong> ${note.message} <span style="float:right;">(${timeString})</span>`;
+          notesList.appendChild(noteItem);
+      }
+
+
+     // Функция для публикации заметки
+     async function publishNote() {
+      const name = nameInput.value.trim();
+      const message = messageInput.value.trim();
+      messageError.textContent = '';
        if (name.length < 1){
-           messageError.textContent = 'Имя должно быть заполнено';
-           return;
-       }
-
-        if (message.length < 3) {
+            messageError.textContent = 'Имя должно быть заполнено';
+            return;
+        }
+      if (message.length < 3) {
             messageError.textContent = 'Сообщение должно содержать минимум 3 символа';
             return;
-        }
-
+       }
          if (message.length > maxChars) {
-           messageError.textContent = `Сообщение не может содержать больше ${maxChars} символов`;
-           return;
+              messageError.textContent = `Сообщение не может содержать больше ${maxChars} символов`;
+              return;
+          }
+
+       const ip = getIpAddress();
+       const today = new Date().toLocaleDateString();
+
+         if (!dailyPosts[ip]) {
+             dailyPosts[ip] = {};
          }
-
-      const ip = getIpAddress();
-      const today = new Date().toLocaleDateString();
-        if (!dailyPosts[ip]) {
-           dailyPosts[ip] = {};
-        }
         if (!dailyPosts[ip][today]){
-           dailyPosts[ip][today] = 0;
-        }
-        if (dailyPosts[ip][today] >= 3) {
-            messageError.textContent = 'Вы уже опубликовали 3 сообщения сегодня.';
-            return;
-        }
+             dailyPosts[ip][today] = 0;
+         }
+         if (dailyPosts[ip][today] >= 3) {
+              messageError.textContent = 'Вы уже опубликовали 3 сообщения сегодня.';
+              return;
+          }
 
-        const note = {name, message};
-        const notes = loadNotes();
-        notes.push(note);
-        saveNotes(notes);
-        addNoteToUI(note);
+       const note = {name, message, time: new Date().toISOString()};
 
-        dailyPosts[ip][today]++;
-        nameInput.value = "";
-        messageInput.value = "";
-        updateCharCount();
-    }
-    // Загрузка заметок при загрузке страницы
-    loadNotes();
+
+        try {
+           const response = await fetch(API_URL, {
+             method: 'POST',
+                body: JSON.stringify(note),
+                 headers: {
+                      'Content-type': 'application/json; charset=UTF-8',
+                    },
+                 });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+                const json = await response.json();
+                console.log('Заметка успешно добавлена на сервер:', json);
+
+                addNoteToUI(note);
+                dailyPosts[ip][today]++;
+                nameInput.value = "";
+                messageInput.value = "";
+                updateCharCount();
+         } catch (e) {
+              console.error('Ошибка при отправке заметки', e);
+             messageError.textContent = 'Ошибка при отправке заметки';
+        }
+     }
+     loadNotes();
 
     submitButton.addEventListener('click', publishNote);
+
 });
